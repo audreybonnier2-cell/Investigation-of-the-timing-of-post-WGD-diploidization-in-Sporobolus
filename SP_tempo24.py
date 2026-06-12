@@ -295,9 +295,10 @@ def main():
 ################################################################################ #############
 # CALCUL DE LA COLONNE SYNTHÉTIQUE GLOBALE "type_scenario"
 ################################################################################ #############
-                        has_DFND = "DFND" in s_classifications
-                        has_DFD = "DFD" in s_classifications
-                        has_absD = "absD" in s_classifications #ajout 05/06 down 21.2
+                        first2 = s_classifications[0:2]
+                        has_DFND = "DFND" in first2
+                        has_DFD = "DFD" in first2
+                        has_absD = "absD" in first2 #ajout 11/06 down 21.2
                         
                         if has_DFND and has_DFD:
                             type_scenario = "mixte"
