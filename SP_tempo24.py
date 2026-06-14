@@ -6,8 +6,7 @@ from ete3 import Tree
 # SYS => Gestion des arguments de la ligne de commande
 # OS => Gestion des chemins de fichiers et dossiers
 # ETE3 Tree => Bibliothèque pour lire et manipuler les arbres Newick
-# Espèces considérées Smaritimus et Salterniflorus, script valable pour 2sp
-# Notes perso : SP et BM2 vérifier conjointement
+# Espèces considérées S. maritimus et S. alterniflorus ; script valable pour 2 espèces
 
 def main():
     # Vérification des arguments (Entrée/Sortie)
