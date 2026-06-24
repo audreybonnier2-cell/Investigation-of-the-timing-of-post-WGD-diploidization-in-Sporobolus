@@ -1,0 +1,733 @@
+---
+title: "tempo7"
+format: revealjs
+author: Audrey Bonnier
+execute:
+  error: true
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished presentation. To learn more about Quarto presentations see <https://quarto.org/docs/presentations/>.
+
+## Bullets
+
+When you click the **Render** button a document will be generated that includes:
+
+-   Content authored with markdown
+-   Output from executable code
+
+## Code
+
+When you click the **Render** button a presentation will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+
+```
+
+```{r}
+#Remise à zéro :
+# rm(tab)
+# rm(tabET)
+# rm(tabET_plot)
+# rm(tab_plot)
+# rm(tab_clean)
+# rm(tabET_clean)
+# rm(tabET_clean)
+# rm(data_tab_DSD)
+# rm(data_tabET_DSD)
+# rm(data_tabET_sd)
+# rm(data_tabET_ds)
+# rm(tab_DSD_log_long)
+# rm(tab_DSD_long)
+# rm(tab_DSD_pairs)
+# rm(tab_log)
+# rm(tab_sd_log)
+# rm(tab_sd_log)
+# rm(tab_sd_long)
+# rm(mix_absolu)
+# rm(mix_log)
+# rm(mix_model_sp)
+# rm(modele_A)
+# rm(modele_B)
+# rm(modele_C)
+# rm(modele_fm_og_sp)
+# rm(modele_fm_sp)
+# rm(modele_fm_spet)
+# rm(p1_hist)
+# rm(p1_qq)
+# rm(p2_hist)
+# rm(p2_qq)
+# rm(var_comp_sp)
+# rm(var_comp_spet)
+# rm(icc_sp)
+# rm(icc_spet)
+# rm(var_og_sp)
+# rm(var_og_spet)
+# rm(var_res_sp)
+# rm(var_res_spet)
+# rm(tabET_log)
+# rm(tab_sd_pairs)
+# rm(mix_model_spet)
+# rm(tab_DSD_absolu_long)
+# rm(tab_ds_absolu_long)
+# rm(tab_sd_absolu_long)
+# rm(tab_ds_log_long)
+# rm(tab_ds_long)
+# rm(tab_long_compare)
+# rm(tab_sd_log_long)
+# rm(mix_log_et)
+# rm(mix_log2)
+# rm(modele_fm_og)
+# rm(contrastes_bonf)
+# rm(mix_model_sp2)
+# rm(moyennes_especes)
+# rm(residus_simules)
+# rm(var_comp_sp2)
+# rm(modele_fm_sp2)
+# rm(ab_clean)
+
+```
+
+```{r}
+# bibliothèques nécessaires
+library(tidyverse)
+library(FactoMineR)
+
+```
+
+Important des données et concaténation
+
+```{r}
+#AJOUT CONCATENATION - permet de lier l'OG et le bloc. Pour que les paires gardent leurs liens même après la création des formats LONG qui serviront pour les modeles mixtes
+tab <- read_csv("nb_bouquet.16766475.csv", na = c("N/A", "NA", "")) %>% 
+    # Création colonne combinée (ex: OG000140_1)
+  mutate(Concat = str_c(OG, "_", Bloc))
+# 3. VERIFICATION DIRECTE : 
+tab %>% 
+  select(OG, Bloc, Concat) %>% 
+  head(10)
+
+tabET <- read_csv("nb_bouquet.16783463.csv", na = c("N/A", "NA", "")) %>%
+  mutate(Concat = str_c(OG, "_", Bloc))
+tab %>% 
+  select(OG, Bloc, Concat) %>% 
+  head(10)
+```
+
+Transformation des noms de scénario si mise à jour des scénarios
+
+```{r}
+# tab[] <- lapply(tab, function(x) gsub("2WGD", "DDS", x)) 
+# tab[] <- lapply(tab, function(x) gsub("DD", "DSD", x)) 
+# tab[] <- lapply(tab, function(x) gsub("DSDS", "DDS", x))
+```
+
+```{r}
+#CREA CLEAN
+tab_clean <- tab %>%
+  # Sécurité : Conversion en numérique
+  mutate(across(c(`1SD_sp1`, `1SD_sp2`, `2SD_sp1`, `2SD_sp2`), as.numeric)) %>%
+  # Logique de choix : Tout ou rien pour le couple 1SD, sinon repli sur 2SD
+  mutate(
+    S_maritimus = ifelse(!is.na(`1SD_sp1`) & !is.na(`1SD_sp2`), `1SD_sp1`, `2SD_sp1`),
+    S_alterniflorus = ifelse(!is.na(`1SD_sp1`) & !is.na(`1SD_sp2`), `1SD_sp2`, `2SD_sp2`),
+    source_distance = ifelse(!is.na(`1SD_sp1`) & !is.na(`1SD_sp2`), "Couple 1SD", "Couple 2SD")
+  ) %>%
+  
+  # validation
+  filter(!is.na(S_maritimus) & !is.na(S_alterniflorus))
+# NOTE : Pas de select() ici, donc 1SD_sp1, 1SD_sp2, 2SD_sp1 et 2SD_sp2 Restent dans le tableau.
+```
+
+CREATION TABLE CLEAN DU GROUPE SPET
+
+```{r}
+# PARTIE 2 : FICHIER tabET (SPET)
+# Espèces : E. tef et N15
+
+tabET_clean <- tabET %>%
+  # Sécurité : Conversion en numérique
+  mutate(across(c(`1SD_sp1`, `1SD_sp2`, `2SD_sp1`, `2SD_sp2`), as.numeric)) %>%
+  
+  # Même logique de repli
+  mutate(
+    E_tef = ifelse(!is.na(`1SD_sp1`) & !is.na(`1SD_sp2`), `1SD_sp1`, `2SD_sp1`),
+    N15   = ifelse(!is.na(`1SD_sp1`) & !is.na(`1SD_sp2`), `1SD_sp2`, `2SD_sp2`),
+    source_distance = ifelse(!is.na(`1SD_sp1`) & !is.na(`1SD_sp2`), "Couple 1SD", "Couple 2SD")
+  ) %>%
+  
+  # validation
+  filter(!is.na(E_tef) & !is.na(N15))
+# NOTE : Pas de select() ici, donc 1SD_sp1, 1SD_sp2, 2SD_sp1 et 2SD_sp2 REstent dans le tableau !
+```
+
+Contrôle
+
+```{r}
+problems(tab_clean)
+# ou si c'est le fichier SPET :
+problems(tabET_clean)
+```
+
+VISUALISATION
+
+```{r}
+View(tab_clean)
+View(tabET_clean)
+tab_clean %>% 
+  select(OG, `1SD_sp1`, `1SD_sp2`, `2SD_sp1`, `2SD_sp2`, S_maritimus, S_alterniflorus, source_distance) %>% 
+  head(20)
+
+```
+
+VISUALISATION BRUTES
+
+```{r}
+tab_clean %>%
+  # Filtre uniquement sur les scénarios DDS et DSD
+  filter(type_scenario %in% c("DDS", "DSD")) %>%
+  
+  # pivote les deux colonnes finales pour le graphique
+  pivot_longer(
+    cols = c(S_maritimus, S_alterniflorus),
+    names_to = "Espece",
+    values_to = "Distance"
+  ) %>%
+  
+# graphique
+  ggplot(aes(x = type_scenario, y = Distance, fill = Espece)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA, position = position_dodge(0.8)) +
+  geom_jitter(aes(color = Espece), alpha = 0.6, size = 1, 
+              position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8)) +
+  # Séparation : Couples issus de 1SD vs Couples issus de 2SD
+  facet_wrap(~ source_distance) +
+  theme_minimal(base_size = 20) + 
+  scale_fill_brewer(palette = "Set2") +   
+  scale_color_brewer(palette = "Set2") +  
+  labs(
+    title = "Groupe SP ",
+    subtitle = "Focus sur les scénarios DDS et DSD",
+    x = "Type de Scénario",
+    y = "Distance de branche",
+    fill = "Espèce",
+    color = "Espèce"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5), # Plus besoin de tourner à 45° puisqu'il n'y a que 2 étiquettes !
+    # Taille du texte de la légende
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 18, face = "bold"),
+    # Encadré des panneaux
+    panel.border = element_rect(color = "grey80", fill = NA),
+    legend.position = "bottom"
+  )
+
+```
+
+Visualisation SPET
+
+```{r}
+tabET_clean %>%
+  # filtre pour ne garder QUE les scénarios d'intérêt
+  filter(S1 %in% c("SD", "DS")) %>%
+  
+  # pivote uniquement les deux colonnes finales pour le graphique
+  pivot_longer(
+    cols = c(E_tef, N15),
+    names_to = "Espece",
+    values_to = "Distance"
+  ) %>%
+  ggplot(aes(x = S1, y = Distance, fill = Espece)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA, position = position_dodge(0.8)) +
+  geom_jitter(aes(color = Espece), alpha = 0.4, size = 1, 
+              position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8)) +
+  facet_wrap(~ source_distance) +
+  theme_minimal(base_size = 22) +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = "Groupe SPET ",
+    subtitle = "Focus sur les scénarios SD et DS",
+    x = "Type de Scénario ",
+    y = "Divergence évolutive",
+    fill = "Espèce",
+    color = "Espèce"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5), 
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 18, face = "bold"),
+    panel.border = element_rect(color = "grey80", fill = NA),
+    legend.position = "bottom"
+  )
+
+
+```
+
+test
+
+```{r}
+#test
+# tabET_clean %>% 
+#   filter(source_distance == "Couple 2SD") %>% 
+#   select(`1SD_sp1`, `2SD_sp1`, E_tef, `1SD_sp2`, `2SD_sp2`, N15) %>% 
+#   head(10)
+
+```
+
+```{r}
+# NORMALITÉ : FICHIER SP 
+# Brutes
+#
+# 1)Histogramme de densité
+p1_hist <- tab_clean %>%
+  pivot_longer(cols = c(S_maritimus, S_alterniflorus), names_to = "Espece", values_to = "Distance") %>%
+  ggplot(aes(x = Distance, fill = Espece)) +
+  geom_histogram(aes(y = ..density..), bins = 30, alpha = 0.5, position = "identity") +
+  geom_density(aes(color = Espece),linewidth = 1) +
+  facet_wrap(~Espece) +
+  theme_minimal() +
+  labs(title = "SP : Histogramme et Courbe de Densité", y = "Densité")
+# 2) QQ-Plot
+p1_qq <- tab_clean %>%
+  pivot_longer(cols = c(S_maritimus, S_alterniflorus), names_to = "Espece", values_to = "Distance") %>%
+  ggplot(aes(sample = Distance, color = Espece)) +
+  stat_qq() +
+  stat_qq_line(color = "black", linetype = "dashed") +
+  facet_wrap(~Espece) +
+  theme_minimal() +
+  labs(title = "GROUPE SP : QQ-Plot ")
+
+print(p1_hist)
+print(p1_qq)
+
+```
+
+```{r}
+summary(tab_clean)
+summary(tabET_clean)
+```
+
+Transformation log
+
+```{r}
+#MISE LOG
+# 'tab_log'
+tab_log <- tab_clean %>%
+  mutate(
+    S_maritimus_log = log(S_maritimus + 0.001),
+    S_alterniflorus_log = log(S_alterniflorus + 0.001)
+  )
+# 'tabET_log' POUR LE DEUXIÈME FICHIER
+tabET_log <- tabET_clean %>%
+  mutate(
+    E_tef_log = log(E_tef + 0.001),
+    N15_log = log(N15 + 0.001)
+  )
+
+```
+
+```{r}
+##############################################################################
+#############################################################################
+# TEST DE NORMALITÉ : SPET 
+# 1___ Histogramme de densité
+#clean brutes
+p2_hist <- tabET_clean %>%
+  pivot_longer(cols = c(E_tef, N15), names_to = "Espece", values_to = "Distance") %>%
+  ggplot(aes(x = Distance, fill = Espece)) +
+  geom_histogram(aes(y = ..density..), bins = 30, alpha = 0.5, position = "identity") +
+  geom_density(aes(color = Espece), size = 1) +
+  facet_wrap(~Espece) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(title = "SPET : Histogramme et Courbe de Densité", y = "Densité")
+
+# 2___ QQ-Plot
+p2_qq <- tabET_clean %>%
+  pivot_longer(cols = c(E_tef, N15), names_to = "Espece", values_to = "Distance") %>%
+  ggplot(aes(sample = Distance, color = Espece)) +
+  stat_qq() +
+  stat_qq_line(color = "black", linetype = "dashed") +
+  facet_wrap(~Espece) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Dark2") +
+  labs(title = "SPET : QQ-Plot (Doit suivre la ligne pointillée)")
+
+print(p2_hist)
+print(p2_qq)
+
+
+```
+
+```{r}
+#####################################################################
+#####################################################################
+#VISUA CORRE + pearson
+#brutes
+tab_clean %>%
+  # filtre  scénario DSD
+  filter(type_scenario == "DSD") %>%
+  
+  # configure axe X et axe Y
+  ggplot(aes(x = S_maritimus, y = S_alterniflorus)) +
+  
+# transparence
+  geom_point(alpha = 0.5, color = "steelblue", size = 2) +
+  
+# La droite de régression linéaire 
+  geom_smooth(method = "lm", color = "red", fill = "pink", se = TRUE) +
+  
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Scénario DSD : Corrélation des distances entre espèces",
+    subtitle = "La ligne rouge représente la régression linéaire (lm)",
+    x = "Distance chez S. maritimus (sp1)",
+    y = "Distance chez S. alterniflorus (sp2)"
+  )
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+# cor.test(tab_dsd$S_maritimus, tab_dsd$S_alterniflorus, method = "pearson")
+```
+
+CORRE DSD GROUPE SP
+
+```{r}
+library(ggpubr)
+
+tab_clean %>%
+  filter(type_scenario == "DSD") %>%
+  ggplot(aes(x = S_maritimus, y = S_alterniflorus)) +
+  geom_point(alpha = 0.5, color = "steelblue", size = 2) +
+  geom_smooth(method = "lm", color = "red", fill = "pink", se = TRUE) +
+  
+  # ICI : Ajoute le coefficient R de Pearson et la p-value sur le graphique !
+  stat_cor(method = "pearson", label.x.npc = "left", label.y.npc = "top") +
+  
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Scénario DSD : Corrélation des distances brutes entre espèces",
+    subtitle = "La ligne rouge: régression linéaire (lm) ; Coefficient R de Pearson",
+    x = "Distance chez S. maritimus (sp1)",
+    y = "Distance chez S. alterniflorus (sp2)"
+  )
+```
+
+```{r}
+# coefficient de corrélation 
+# isole les données DSD pour le test
+# Brutes
+data_tab_DSD <- tab_clean %>% filter(type_scenario == "DSD")
+# Test de Spearman ( données brutes non normales)
+print("--- TEST DE CORRÉLATION DE SPEARMAN (SP - DSD) ---")
+cor.test(data_tab_DSD$S_maritimus, data_tab_DSD$S_alterniflorus, method = "spearman")
+
+# Console => Dans cor.test.default(data_tab_DSD$S_maritimus, data_tab_DSD$S_alterniflorus,  :
+# Console => Impossible de calculer la p-value exacte avec des ex-aequos
+
+
+```
+
+```{r}
+# CORRÉLATION SCÉNARIO SD - FICHIER SPET
+#
+# GRAPHIQUE : Nuage de points + Droite de régression 
+# brutes
+tabET_clean %>%
+  # On filtre sur la colonne S1 pour le scénario SD
+  filter(S1 == "SD") %>% 
+  
+  ggplot(aes(x = E_tef, y = N15)) +
+  geom_point(alpha = 0.5, color = "darkorange", size = 2) +
+  geom_smooth(method = "lm", color = "red", fill = "pink", se = TRUE) +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Scénario SD (Fichier SPET) : Corrélation des distances",
+    subtitle = "La ligne rouge représente la régression linéaire (lm)",
+    x = "Distance chez E. tef (sp1)",
+    y = "Distance chez N15 (sp2)"
+  )
+
+# STATISTIQUES : Test de Spearman 
+# On isole les données SD (via la colonne S1)
+data_tabET_sd <- tabET_clean %>% filter(S1 == "SD")
+# rm(data_tabET_sd)
+print("--- TEST DE CORRÉLATION DE SPEARMAN (SPET - SD) ---")
+cor.test(data_tabET_sd$E_tef, data_tabET_sd$N15, method = "spearman")
+
+
+##########################################################################################
+
+```
+
+ERREUR FAIT SUR TOUS LES SCENARIOS
+
+```{r}
+# Pour les données brutes
+tab_shapiro_brut <- tab_clean %>% 
+  filter(type_scenario == "DSD")
+
+if(nrow(tab_shapiro_brut) > 5000) {
+  tab_shapiro_brut <- tab_shapiro_brut %>% sample_n(5000)
+}
+
+# Pour les données LOG
+tab_shapiro_log <- tab_log %>% 
+  filter(type_scenario == "DSD")
+
+if(nrow(tab_shapiro_log) > 5000) {
+  tab_shapiro_log <- tab_shapiro_log %>% sample_n(5000)
+}
+
+
+# 
+# 2) LANCEMENT DES TESTS DE SHAPIRO-WILK
+#
+
+# ESPÈCE 1 : S. maritimus 
+message("--- S. maritimus (Brut) ---")
+shapiro.test(tab_shapiro_brut$S_maritimus)
+
+message("--- S. maritimus (LOG) ---")
+shapiro.test(tab_shapiro_log$S_maritimus_log)
+
+
+#ESPÈCE 2 : S. alterniflorus
+message("--- S. alterniflorus (Brut) ---")
+shapiro.test(tab_shapiro_brut$S_alterniflorus)
+
+message("--- S. alterniflorus (LOG) ---")
+shapiro.test(tab_shapiro_log$S_alterniflorus_log)
+```
+
+#modele lineaire SIMPLE SANS OG
+
+```{r}
+#OK
+library(FactoMineR)
+# filtre  scénario DSD
+tab_DSD_pairs <- tab_log %>% filter(type_scenario == "DSD")
+
+# 2 LinearModel FactoMineR
+modele_A <- LinearModel(S_alterniflorus_log ~ S_maritimus_log, 
+                            data = tab_DSD_pairs, 
+                            selection = "none")
+# 3 F-test et T-test
+print(modele_A)
+```
+
+```{r}
+#LINEAR SPET SIMPLE
+# filtre scénario SD
+tab_sd_pairs <- tabET_log %>% filter(S1 == "SD")
+tab_sd_pairs$OG <- as.factor(tab_sd_pairs$OG)
+
+# LinearModel FactoMineR
+modele_fm_spet <- LinearModel(N15_log ~ E_tef_log + OG, 
+                              data = tab_sd_pairs, 
+                              selection = "none")
+print(modele_fm_spet)
+
+######################################################################################
+# #AVEC OG
+# tab_DSD_long <- tab_log %>% 
+#   filter(type_scenario == "DSD") %>%
+#   mutate(OG_id = as.factor(row_number())) %>% 
+#   pivot_longer(
+#     cols = c(S_maritimus_log, S_alterniflorus_log),
+#     names_to = "Espece",
+#     values_to = "Distance_Log"
+#   )
+# 
+# 
+# modele_fm_og <- LinearModel(Distance_Log ~ Espece + OG_id, 
+#                             data = tab_DSD_long, 
+#                             selection = "none")
+# 
+# #  Ftest global (le Ttest ferait 1700 lignes !)
+# modele_fm_og$Ftest
+
+#modele lineaire
+# prépare data (Scénario DSD)
+tab_DSD_pairs <- tab_log %>% filter(type_scenario == "DSD")
+tab_DSD_pairs$OG <- as.factor(tab_DSD_pairs$OG) 
+
+########################################################################################
+#########################################################################
+#OG NEW
+#modele_fm_og_sp = meme chose que modele A
+# tab_DSD_pairs <- tab_log %>% filter(type_scenario == "DSD")
+# tab_DSD_pairs$OG <- as.factor(tab_DSD_pairs$OG)
+# modele_fm_og_sp <- LinearModel(S_alterniflorus_log ~ S_maritimus_log + OG, 
+#                                data = tab_DSD_pairs, 
+#                                selection = "none")
+# 
+# modele_fm_og_sp$Ftest
+# 
+# print(modele_fm_og_sp)
+#R²=98%
+#OG=0.00545
+#S_maritimus_log=0.23071
+#Le modele explique 98 de la variabilité
+
+######################################################################################
+#####################################################################################
+
+```
+
+Modele B et C
+
+```{r}
+print("MODÈLE B : Alterniflorus ~ Maritimus + OG")
+
+modele_B <- LinearModel(S_alterniflorus_log ~ S_maritimus_log + OG, 
+                        data = tab_DSD_pairs, 
+                        selection = "none")
+
+# Affichage 
+modele_B$Ftest
+print(modele_B)
+
+print("=== MODÈLE C: Maritimus ~ Alterniflorus + OG ")
+
+modele_C <- LinearModel(S_maritimus_log ~ S_alterniflorus_log + OG, 
+                        data = tab_DSD_pairs, 
+                        selection = "none")
+
+# Affichage 
+modele_B$Ftest
+print(modele_C)
+
+```
+
+MIX EFFET OG
+
+```{r}
+# MODELE MIXTE AVEC LOG AVEC EFFET ALÉATOIRE SUR L'OG+bloc (pour rétablir pivotlong effet)
+
+library(tidyverse)
+library(lme4)
+library(lmerTest) 
+
+# Scénario DSD 
+print("=== MODÈLE MIXTE : GROUPE SP (Scénario DSD) ===")
+
+tab_DSD_long <- tab_log %>% 
+  filter(type_scenario == "DSD") %>%
+  pivot_longer(
+    cols = c(S_maritimus_log, S_alterniflorus_log),
+    names_to = "Espece",
+    values_to = "Distance_Log"
+  )
+
+mix_model_sp <- lmer(Distance_Log ~ Espece + (1 | Concat), data = tab_DSD_long)
+summary(mix_model_sp)
+
+# ICC MANUEL
+var_comp_sp <- as.data.frame(VarCorr(mix_model_sp))
+var_conc_sp <- var_comp_sp$vcov[1]       # Variance de l'OG
+var_res_sp <- var_comp_sp$vcov[2]      # Variance résiduelle (erreur)
+icc_sp <- var_conc_sp / (var_conc_sp + var_res_sp)
+
+cat("\nPart de variance expliquée par l'OG (ICC) pour SP :", round(icc_sp * 100, 2), "%\n\n")
+
+
+##################################################################################################################################
+
+```
+
+L'effet de S. maritimus est de +1,22 en log (exponentielle environ 3.4), les distance de branches sont significativement plus grande chez S. maritimus. En moyenne dans le scénario DSD la distance de S. maritimus est environ 3,4 fois plus grande que chez S. alterniflorus. La divergence semble est fortement asymétrique. 15% de la variation dépend de la nature de l'OG où certains évoluent plus ou moins vite. Le diagnostic du modele, le scaled residuals de médiane -0.35 et de maximum 3.46 (au lieu de Max 30 pour un modèle sur les valeurs brutes), la transformation LOG a bien stabilisé le modèle.
+
+Le rythme de d'évolution n'est pas le même entre les deux espèces du groupe SP. *S. maritimus* affiche une accélération majeur par rapport à *S. alterniflorus* avec des branches 3 fois plus longue.
+
+```{r}
+#MODELE MIXTE AVEC LOG EFFET ALÉATOIRE SUR L'OG+bloc (pour rétablir pivotlong effet)
+
+library(tidyverse)
+library(lme4)
+library(lmerTest) 
+
+# Scénario DSD 
+print("MODÈLE MIXTE : GROUPE SPET (Scénario SD)")
+
+tab_sd_long <- tab_sd_pairs %>% 
+  filter(S1 == "SD") %>%
+  pivot_longer(
+    cols = c(E_tef_log, N15_log),
+    names_to = "Espece",
+    values_to = "Distance_Log"
+  )
+
+mix_model_spet <- lmer(Distance_Log ~ Espece + (1 | Concat), data = tab_sd_long)
+summary(mix_model_spet)
+
+# ICC MANUEL
+var_comp_spet <- as.data.frame(VarCorr(mix_model_spet))
+var_conc_spet <- var_comp_spet$vcov[1]       # Variance de l'OG
+var_res_spet <- var_comp_spet$vcov[2]      # Variance résiduelle (erreur)
+icc_spet <- var_conc_spet / (var_conc_spet + var_res_spet)
+
+cat("\nPart de variance expliquée par l'OG + bloc (ICC) pour SPET :", round(icc_spet * 100, 2), "%\n\n")
+
+
+##################################################################################################################################
+```
+
+```{r}
+qqnorm(resid(mix_model_sp), main = "QQ-plot des résidus - SP")
+qqline(resid(mix_model_sp), col = "red")
+
+qqnorm(resid(mix_model_spet), main = "QQ-plot des résidus - SPET")
+qqline(resid(mix_model_spet), col = "red")
+```
+
+```{r}
+library(car)
+qqPlot(residuals(mix_model_sp))
+install.packages("performance")
+library(performance)
+
+# Calcul normalité des résidus du modèle mixte
+check_normality(mix_model_sp)
+
+
+
+```
+
+```{r}
+tab_DSD_long[c(1431, 2155), ]
+```
+
+```{r}
+#SPET
+qqPlot(residuals(mix_model_spet))
+check_normality(mix_model_spet)
+tab_DSD_long[c(10051, 10052), ]
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
